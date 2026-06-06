@@ -3,7 +3,6 @@
  */
 import './style.css';
 import heic2any from 'heic2any';
-import { removeBackground } from '@imgly/background-removal';
 import { initEditor, drawSticker, state } from './editor.js';
 import {
   loadStickers,
@@ -147,19 +146,6 @@ async function processUploadedFile(file) {
 
     // Save original blob in editor state
     state.originalBlob = imageBlob;
-    
-    const toggleAiCrop = document.getElementById('toggle-ai-crop');
-    if (toggleAiCrop && toggleAiCrop.checked) {
-      loaderStatus.textContent = 'Removing background locally (AI)... [Initializing]';
-      imageBlob = await removeBackground(imageBlob, {
-        publicPath: window.location.origin + '/background-removal/',
-        model: 'small',
-        progress: (key, current, total) => {
-          const pct = Math.round((current / total) * 100);
-          loaderStatus.textContent = `Removing background locally (AI)... [${key.replace('fetch:', '')}: ${pct}%]`;
-        }
-      });
-    }
     
     loaderStatus.textContent = 'Loading image...';
     
@@ -401,51 +387,7 @@ function main() {
     }
   });
 
-  // Listener to toggling AI background cutout checkbox in real-time
-  const toggleAiCrop = document.getElementById('toggle-ai-crop');
-  toggleAiCrop.addEventListener('change', async () => {
-    if (!state.originalBlob) return;
-    
-    // Show spinner, hide uploader text
-    dropZone.style.display = 'none';
-    loader.style.display = 'flex';
-    btnAddSticker.disabled = true;
-    
-    try {
-      let processedBlob = state.originalBlob;
-      if (toggleAiCrop.checked) {
-        loaderStatus.textContent = 'Removing background locally (AI)... [Initializing]';
-        processedBlob = await removeBackground(state.originalBlob, {
-          publicPath: window.location.origin + '/background-removal/',
-          model: 'small',
-          progress: (key, current, total) => {
-            const pct = Math.round((current / total) * 100);
-            loaderStatus.textContent = `Removing background locally (AI)... [${key.replace('fetch:', '')}: ${pct}%]`;
-          }
-        });
-      }
-      
-      loaderStatus.textContent = 'Loading image...';
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          state.sourceImage = img;
-          loader.style.display = 'none';
-          dropZone.style.display = 'flex';
-          btnAddSticker.disabled = false;
-          handleCanvasRedraw();
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(processedBlob);
-    } catch (error) {
-      console.error('Error re-processing AI background cutout:', error);
-      loader.style.display = 'none';
-      dropZone.style.display = 'flex';
-    }
-  });
-  
+
   // 7. Add to Pack / Save Changes button
   btnAddSticker.addEventListener('click', () => {
     if (!state.sourceImage) return;
