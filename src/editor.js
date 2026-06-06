@@ -6,6 +6,7 @@
 // Global editor state
 export const state = {
   sourceImage: null, // HTMLImageElement or null
+  originalBlob: null, // File/Blob of the original uploaded image
   cartoonEnabled: false,
   cartoonColors: 5,
   cartoonEdges: 3,

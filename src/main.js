@@ -3,6 +3,7 @@
  */
 import './style.css';
 import heic2any from 'heic2any';
+import { removeBackground } from '@imgly/background-removal';
 import { initEditor, drawSticker, state } from './editor.js';
 import {
   loadStickers,
@@ -163,7 +164,7 @@ async function processUploadedFile(file) {
     let imageBlob = file;
     
     // HEIC Conversion check
-    const isHEIC = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif') || file.type === 'image/heic' || file.type === 'image/heif';
+    const isHEIC = file.name && (file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif') || file.type === 'image/heic' || file.type === 'image/heif');
     
     if (isHEIC) {
       loaderStatus.textContent = 'Converting HEIC format locally...';
@@ -174,6 +175,16 @@ async function processUploadedFile(file) {
       });
       // heic2any can return an array or a single blob
       imageBlob = Array.isArray(conversionResult) ? conversionResult[0] : conversionResult;
+    }
+
+    // Save original blob in editor state
+    state.originalBlob = imageBlob;
+    
+    const toggleAiCrop = document.getElementById('toggle-ai-crop');
+    if (toggleAiCrop && toggleAiCrop.checked) {
+      loaderStatus.textContent = 'Removing background locally (AI)...';
+      // First run downloads model (~30MB) and caches it
+      imageBlob = await removeBackground(imageBlob);
     }
     
     loaderStatus.textContent = 'Loading image...';
@@ -303,11 +314,20 @@ async function loadSampleStickers() {
     { url: '/sample-cat-3.png', emojis: '😡', text: 'GRUMPY' }
   ];
   
+  // Note: First background removal trigger downloads the model
   for (const sample of samples) {
     try {
       const response = await fetch(sample.url);
       if (!response.ok) continue;
-      const blob = await response.blob();
+      let blob = await response.blob();
+      
+      // Auto-cut the backgrounds of the sample stickers so they look amazing and transparent on load!
+      try {
+        blob = await removeBackground(blob);
+      } catch (e) {
+        console.error('AI Cutout failed on sample sticker, using original:', e);
+      }
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         addSticker(reader.result, sample.emojis, sample.text, () => {
@@ -347,6 +367,44 @@ function main() {
       loadSampleStickers();
     } else {
       renderStickersGrid(onEditSticker, onDeleteSticker);
+    }
+  });
+
+  // Listener to toggling AI background cutout checkbox in real-time
+  const toggleAiCrop = document.getElementById('toggle-ai-crop');
+  toggleAiCrop.addEventListener('change', async () => {
+    if (!state.originalBlob) return;
+    
+    // Show spinner, hide uploader text
+    dropZone.style.display = 'none';
+    loader.style.display = 'flex';
+    btnAddSticker.disabled = true;
+    
+    try {
+      let processedBlob = state.originalBlob;
+      if (toggleAiCrop.checked) {
+        loaderStatus.textContent = 'Removing background locally (AI)...';
+        processedBlob = await removeBackground(state.originalBlob);
+      }
+      
+      loaderStatus.textContent = 'Loading image...';
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          state.sourceImage = img;
+          loader.style.display = 'none';
+          dropZone.style.display = 'flex';
+          btnAddSticker.disabled = false;
+          handleCanvasRedraw();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(processedBlob);
+    } catch (error) {
+      console.error('Error re-processing AI background cutout:', error);
+      loader.style.display = 'none';
+      dropZone.style.display = 'flex';
     }
   });
   

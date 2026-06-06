@@ -12,6 +12,7 @@
     "vite": "^8.0.12"
   },
   "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
     "heic2any": "^0.0.4",
     "jszip": "^3.10.1"
   }
