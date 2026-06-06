@@ -153,6 +153,7 @@ async function processUploadedFile(file) {
       loaderStatus.textContent = 'Removing background locally (AI)... [Initializing]';
       imageBlob = await removeBackground(imageBlob, {
         publicPath: window.location.origin + '/background-removal/',
+        model: 'small',
         progress: (key, current, total) => {
           const pct = Math.round((current / total) * 100);
           loaderStatus.textContent = `Removing background locally (AI)... [${key.replace('fetch:', '')}: ${pct}%]`;
@@ -416,6 +417,7 @@ function main() {
         loaderStatus.textContent = 'Removing background locally (AI)... [Initializing]';
         processedBlob = await removeBackground(state.originalBlob, {
           publicPath: window.location.origin + '/background-removal/',
+          model: 'small',
           progress: (key, current, total) => {
             const pct = Math.round((current / total) * 100);
             loaderStatus.textContent = `Removing background locally (AI)... [${key.replace('fetch:', '')}: ${pct}%]`;
