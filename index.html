@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="GJ" />
+    <meta name="description" content="Tele-Stickers - Prepare, style, and pack custom cat stickers for Telegram entirely locally in your browser." />
+    <title>🐱 Tele-Stickers - Custom Cat Sticker Pack Maker</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for icons -->
+    <script defer src="https://kit.fontawesome.com/9680713c22.js" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div class="app-container">
+      
+      <!-- Top Navigation Header -->
+      <header class="app-header">
+        <div class="logo-area">
+          <span class="logo-emoji">🐱</span>
+          <div class="logo-text">
+            <h1>Tele-Stickers</h1>
+            <p>100% Local Cat Sticker Studio</p>
+          </div>
+        </div>
+        <nav class="tab-nav">
+          <button class="nav-tab active" id="tab-btn-generator" data-tab="generator">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Sticker Builder
+          </button>
+          <button class="nav-tab" id="tab-btn-showcase" data-tab="showcase">
+            <i class="fa-solid fa-images"></i> Pack Showcase <span class="badge" id="pack-count-badge">0</span>
+          </button>
+          <button class="nav-tab" id="tab-btn-guide" data-tab="guide">
+            <i class="fa-solid fa-circle-info"></i> Import Guide
+          </button>
+        </nav>
+      </header>
+
+      <main class="app-main">
+        
+        <!-- Tab 1: Sticker Builder -->
+        <section class="tab-content active" id="tab-generator">
+          <div class="generator-layout">
+            
+            <!-- Left Controls Panel -->
+            <div class="panel controls-panel">
+              <div class="panel-header">
+                <h2>Sticker Settings</h2>
+              </div>
+              
+              <!-- Pack Info Section -->
+              <div class="control-group">
+                <h3><i class="fa-solid fa-folder-open"></i> Sticker Pack Info</h3>
+                <div class="input-row">
+                  <label for="pack-name-input">Pack Title</label>
+                  <input type="text" id="pack-name-input" placeholder="e.g. My Cute Cats" value="My Cat Stickers" />
+                </div>
+                <div class="input-row">
+                  <label for="pack-id-input">Pack ID (Shortname)</label>
+                  <input type="text" id="pack-id-input" placeholder="e.g. my_cute_cats" value="my_cat_stickers" />
+                  <small class="hint">Use letters, numbers, and underscores.</small>
+                </div>
+              </div>
+              
+              <!-- Image Upload Box -->
+              <div class="control-group">
+                <h3><i class="fa-solid fa-cloud-arrow-up"></i> Upload Cat Image</h3>
+                <div class="drop-zone" id="drop-zone">
+                  <i class="fa-regular fa-image upload-icon"></i>
+                  <p class="drop-text">Drag & drop cat photo here or click to browse</p>
+                  <p class="drop-formats">Supports HEIC, PNG, JPEG</p>
+                  <input type="file" id="file-input" accept="image/*,.heic,.heif" style="display: none;" />
+                </div>
+                <div class="loader-container" id="uploader-loader" style="display: none;">
+                  <div class="spinner"></div>
+                  <p id="loader-status">Processing image...</p>
+                </div>
+              </div>
+              
+              <!-- Sticker Styling Options -->
+              <div class="control-group">
+                <h3><i class="fa-solid fa-sliders"></i> Adjust Styling</h3>
+                
+                <!-- Cartoon Effect Toggle & Sliders -->
+                <div class="toggle-row">
+                  <label class="switch-label">
+                    <span class="label-text">Cartoon Effect</span>
+                    <input type="checkbox" id="toggle-cartoon" />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <div class="slider-row" id="cartoon-colors-container" style="display: none;">
+                  <label for="cartoon-colors">Color Steps: <span id="cartoon-colors-val">5</span></label>
+                  <input type="range" id="cartoon-colors" min="2" max="12" value="5" />
+                </div>
+                <div class="slider-row" id="cartoon-edges-container" style="display: none;">
+                  <label for="cartoon-edges">Ink Outline: <span id="cartoon-edges-val">3</span></label>
+                  <input type="range" id="cartoon-edges" min="0" max="10" value="3" />
+                </div>
+                
+                <!-- Border Toggle & Size -->
+                <div class="toggle-row">
+                  <label class="switch-label">
+                    <span class="label-text">White Sticker Border</span>
+                    <input type="checkbox" id="toggle-border" checked />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <div class="slider-row" id="border-size-container">
+                  <label for="border-size">Border Width: <span id="border-size-val">8</span>px</label>
+                  <input type="range" id="border-size" min="1" max="25" value="8" />
+                </div>
+                
+                <!-- Drop Shadow Toggle & Size -->
+                <div class="toggle-row">
+                  <label class="switch-label">
+                    <span class="label-text">Telegram Drop Shadow</span>
+                    <input type="checkbox" id="toggle-shadow" checked />
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <div class="slider-row" id="shadow-size-container">
+                  <label for="shadow-blur">Shadow Blur: <span id="shadow-blur-val">6</span>px</label>
+                  <input type="range" id="shadow-blur" min="0" max="20" value="6" />
+                </div>
+              </div>
+              
+              <!-- Meme Text Section -->
+              <div class="control-group">
+                <h3><i class="fa-solid fa-font"></i> Caption Text (Optional)</h3>
+                <div class="input-row">
+                  <input type="text" id="caption-input" placeholder="Type funny cat text..." />
+                </div>
+                <div class="slider-row">
+                  <label for="caption-size">Font Size: <span id="caption-size-val">48</span>px</label>
+                  <input type="range" id="caption-size" min="20" max="80" value="48" />
+                </div>
+                <div class="radio-group">
+                  <label class="radio-label">
+                    <input type="radio" name="caption-pos" value="top" />
+                    <span>Top</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="caption-pos" value="center" />
+                    <span>Center</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="caption-pos" value="bottom" checked />
+                    <span>Bottom</span>
+                  </label>
+                </div>
+              </div>
+              
+              <!-- Emoji Selection -->
+              <div class="control-group">
+                <h3><i class="fa-regular fa-face-smile"></i> Mapped Emojis</h3>
+                <div class="emoji-input-wrapper">
+                  <input type="text" id="emoji-input" value="🐱" placeholder="Sticker emojis..." readonly />
+                  <button class="btn-clear-emojis" id="btn-clear-emojis" title="Clear Emojis">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+                <div class="emoji-picker" id="emoji-picker">
+                  <!-- JS will generate standard reaction emojis here -->
+                </div>
+              </div>
+              
+              <!-- Actions -->
+              <div class="button-row">
+                <button class="btn btn-primary btn-large" id="btn-add-sticker" disabled>
+                  <i class="fa-solid fa-plus"></i> Add to Pack
+                </button>
+              </div>
+
+            </div>
+            
+            <!-- Right Preview Panel -->
+            <div class="panel preview-panel">
+              <div class="panel-header">
+                <h2>Live Preview</h2>
+              </div>
+              
+              <!-- Live Canvas View -->
+              <div class="preview-canvas-wrapper">
+                <canvas id="sticker-canvas" width="512" height="512"></canvas>
+                <div class="canvas-placeholder" id="canvas-placeholder">
+                  <i class="fa-solid fa-cat placeholder-cat-icon"></i>
+                  <p>Upload a cat image to see the preview</p>
+                </div>
+              </div>
+              
+              <!-- Telegram Chat Bubble Preview -->
+              <div class="telegram-preview-area">
+                <h4>Telegram Chat Preview</h4>
+                
+                <!-- BG Selector for Dark / Light / Pattern testing -->
+                <div class="theme-switcher">
+                  <button class="theme-btn active" data-chat-theme="classic" title="Classic Theme">
+                    <span class="color-dot classic"></span>
+                  </button>
+                  <button class="theme-btn" data-chat-theme="dark" title="Dark Theme">
+                    <span class="color-dot dark"></span>
+                  </button>
+                  <button class="theme-btn" data-chat-theme="peach" title="Peach Theme">
+                    <span class="color-dot peach"></span>
+                  </button>
+                </div>
+                
+                <div class="chat-container classic" id="chat-preview-container">
+                  <div class="message-bubble received">
+                    <div class="sender-name">GJ's Friend</div>
+                    <p>Oh my gosh, please send me a picture of your cat! 😍</p>
+                    <span class="message-time">12:00 PM</span>
+                  </div>
+                  
+                  <div class="message-bubble sent sticker">
+                    <div class="sticker-bubble">
+                      <img id="chat-sticker-img" src="" alt="Sticker Preview" style="display: none;" />
+                      <div class="sticker-placeholder-bubble" id="chat-sticker-placeholder">
+                        <i class="fa-regular fa-image"></i>
+                      </div>
+                    </div>
+                    <!-- Time for stickers is floating, no bubble background -->
+                    <span class="message-time sticker-time">12:01 PM <i class="fa-solid fa-check-double read-check"></i></span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+        
+        <!-- Tab 2: Sticker Pack Showcase (Fullyst-Style) -->
+        <section class="tab-content" id="tab-showcase">
+          <div class="showcase-container">
+            
+            <!-- Showcase Header Card -->
+            <div class="showcase-card">
+              <div class="showcase-card-header">
+                <div class="pack-meta-display">
+                  <span class="pack-icon">🐱</span>
+                  <div class="pack-titles">
+                    <h2 id="showcase-pack-title">My Cat Stickers</h2>
+                    <p>Shortname: <strong id="showcase-pack-id">my_cat_stickers</strong></p>
+                  </div>
+                </div>
+                
+                <div class="showcase-actions">
+                  <button class="btn btn-secondary" id="btn-export-zip" disabled>
+                    <i class="fa-solid fa-file-zipper"></i> Export ZIP Pack
+                  </button>
+                  <button class="btn btn-primary" id="btn-goto-guide">
+                    <i class="fa-brands fa-telegram"></i> Add to Telegram
+                  </button>
+                </div>
+              </div>
+              
+              <div class="showcase-stats">
+                <p>Telegram sticker pack contains <strong id="showcase-sticker-count">0</strong> custom stickers.</p>
+                <p class="security-disclaimer"><i class="fa-solid fa-shield-halved"></i> 100% Client-Side. No images leave your computer.</p>
+              </div>
+            </div>
+
+            <!-- Stickers Grid -->
+            <div class="stickers-grid-container">
+              <div class="stickers-grid" id="stickers-grid">
+                <!-- JS will inject sticker preview items here -->
+              </div>
+              
+              <!-- Empty Grid View -->
+              <div class="empty-grid-view" id="empty-grid-view">
+                <i class="fa-solid fa-paw empty-paw-icon"></i>
+                <h3>No stickers created yet</h3>
+                <p>Go to the **Sticker Builder** tab, upload a cat photo, customize it, and add it here!</p>
+                <button class="btn btn-primary btn-margin" id="btn-empty-goto-builder">
+                  Create First Sticker
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+        
+        <!-- Tab 3: Telegram Import Guide -->
+        <section class="tab-content" id="tab-guide">
+          <div class="guide-container">
+            <h2 class="guide-title">How to Import Stickers to Telegram</h2>
+            <p class="guide-subtitle">Telegram sticker packs are managed via the official @Stickers bot in Telegram. Here is the step-by-step process to upload your styled cat images.</p>
+            
+            <div class="steps-container">
+              
+              <!-- Step 1 -->
+              <div class="step-card">
+                <div class="step-num">1</div>
+                <div class="step-icon"><i class="fa-solid fa-file-zipper"></i></div>
+                <h3>Download Your ZIP Pack</h3>
+                <p>Go to the <strong>Pack Showcase</strong> tab and click <strong>Export ZIP Pack</strong>. Save the ZIP file locally and extract/unzip the PNG files onto your device.</p>
+              </div>
+              
+              <!-- Step 2 -->
+              <div class="step-card">
+                <div class="step-num">2</div>
+                <div class="step-icon"><i class="fa-brands fa-telegram"></i></div>
+                <h3>Start the Stickers Bot</h3>
+                <p>Open Telegram and search for <strong>@Stickers</strong>, or click <a href="https://t.me/Stickers" target="_blank" rel="noopener noreferrer">t.me/Stickers</a> to launch the bot chat. Press <strong>Start</strong>.</p>
+              </div>
+              
+              <!-- Step 3 -->
+              <div class="step-num-line"></div>
+              
+              <!-- Step 3 -->
+              <div class="step-card">
+                <div class="step-num">3</div>
+                <div class="step-icon"><i class="fa-solid fa-folder-plus"></i></div>
+                <h3>Create New Sticker Pack</h3>
+                <p>Send the command <code>/newpack</code> to the bot. It will ask for a name. Type in your desired Pack Title (e.g. <code>My Cute Cats</code>).</p>
+              </div>
+              
+              <!-- Step 4 -->
+              <div class="step-card">
+                <div class="step-num">4</div>
+                <div class="step-icon"><i class="fa-solid fa-upload"></i></div>
+                <h3>Upload files & Emojis</h3>
+                <p>The bot will ask you to send the sticker. Upload one of the <strong>512x512px PNG</strong> files from your extracted ZIP as a <strong>File/Document</strong> (NOT a compressed photo). Then send the emoji you mapped to it.</p>
+              </div>
+              
+              <!-- Step 5 -->
+              <div class="step-card">
+                <div class="step-num">5</div>
+                <div class="step-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <h3>Publish the Pack</h3>
+                <p>Repeat Step 4 for all stickers. When finished, send <code>/publish</code>, then <code>/skip</code> (for the icon), and finally type a unique short link URL name (e.g. <code>GJ_cats</code>).</p>
+              </div>
+              
+              <!-- Step 6 -->
+              <div class="step-card">
+                <div class="step-num">6</div>
+                <div class="step-icon"><i class="fa-solid fa-face-grin-stars"></i></div>
+                <h3>Add and Use!</h3>
+                <p>The bot will reply with a sticker link like <code>t.me/addstickers/GJ_cats</code>. Click this link to add your new custom cat stickers to your keyboard!</p>
+              </div>
+
+            </div>
+            
+            <div class="guide-footer-card">
+              <h3>Ready to start?</h3>
+              <p>Prepare your cat stickers in the Builder, package them, and share them with the world!</p>
+              <button class="btn btn-primary" id="btn-guide-goto-builder">
+                Start Building Stickers
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </main>
+      
+      <!-- Footer -->
+      <footer class="app-footer">
+        <p>&copy; 2026 Tele-Stickers. Created with ❤️ for cat lovers. running 100% locally.</p>
+      </footer>
+
+    </div>
+
+    <!-- Vite main script loader -->
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
