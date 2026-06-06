@@ -35,19 +35,34 @@ export function loadStickers(onLoad) {
 export function saveStickers() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stickersList));
+    return true;
   } catch (e) {
     console.error('Failed to save stickers to localStorage:', e);
+    // Revert the in-memory stickersList to what is actually in storage
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        stickersList = JSON.parse(saved);
+      } else {
+        stickersList = [];
+      }
+    } catch (reloadErr) {
+      stickersList = [];
+    }
+    // Dispatch a custom event so main.js can display an error toast
+    window.dispatchEvent(new CustomEvent('sticker-storage-error', { detail: e }));
+    return false;
   }
 }
 
 /**
  * Add a sticker to the pack
  */
-export function addSticker(dataUrl, emojis, text, onUpdate) {
+export function addSticker(dataUrl, text, onUpdate) {
+  loadStickers();
   const newSticker = {
     id: 'sticker_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
     dataUrl,
-    emojis: emojis || '🐱',
     text
   };
   stickersList.push(newSticker);
@@ -59,6 +74,7 @@ export function addSticker(dataUrl, emojis, text, onUpdate) {
  * Delete a sticker from the pack
  */
 export function deleteSticker(id, onUpdate) {
+  loadStickers();
   stickersList = stickersList.filter(s => s.id !== id);
   saveStickers();
   if (onUpdate) onUpdate(stickersList);
@@ -67,13 +83,13 @@ export function deleteSticker(id, onUpdate) {
 /**
  * Update an existing sticker in the pack
  */
-export function updateSticker(id, dataUrl, emojis, text, onUpdate) {
+export function updateSticker(id, dataUrl, text, onUpdate) {
+  loadStickers();
   const index = stickersList.findIndex(s => s.id === id);
   if (index !== -1) {
     stickersList[index] = {
       ...stickersList[index],
       dataUrl,
-      emojis: emojis || '🐱',
       text
     };
     saveStickers();
@@ -113,18 +129,12 @@ export function renderStickersGrid(onEditSticker, onDeleteSticker) {
     card.className = 'sticker-card';
     card.dataset.id = sticker.id;
     
-    // Emoji bubble
-    const emojiBubble = document.createElement('span');
-    emojiBubble.className = 'sticker-card-emoji';
-    emojiBubble.textContent = sticker.emojis;
-    card.appendChild(emojiBubble);
-    
     // Image wrapper
     const imgWrapper = document.createElement('div');
     imgWrapper.className = 'sticker-card-img-wrapper';
     const img = document.createElement('img');
     img.src = sticker.dataUrl;
-    img.alt = `Sticker ${sticker.emojis}`;
+    img.alt = `Sticker ${sticker.text || ''}`;
     img.loading = 'lazy';
     imgWrapper.appendChild(img);
     card.appendChild(imgWrapper);
@@ -178,27 +188,20 @@ export function renderStickersGrid(onEditSticker, onDeleteSticker) {
 }
 
 /**
- * Downloads a single sticker as a PNG file
+ * Downloads a single sticker
  */
 function downloadSingleSticker(sticker, index) {
   const link = document.createElement('a');
-  // Clean emoji names for filename
-  const cleanEmojis = getCleanEmojiString(sticker.emojis);
-  link.download = `sticker_${index}_${cleanEmojis}.png`;
+  
+  // Detect file format extension from dataUrl (default to png)
+  const isWebp = sticker.dataUrl && sticker.dataUrl.startsWith('data:image/webp');
+  const ext = isWebp ? 'webp' : 'png';
+  
+  link.download = `sticker_${index}.${ext}`;
   link.href = sticker.dataUrl;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-}
-
-/**
- * Generates the clean emojis string for filenames (converts characters to code points or strips special characters)
- */
-function getCleanEmojiString(emojiStr) {
-  // Extract emojis, skip spaces/special filesystem chars
-  return Array.from(emojiStr)
-    .filter(char => /\p{Emoji}/u.test(char))
-    .join('') || 'emoji';
 }
 
 /**
@@ -210,11 +213,14 @@ export async function exportPackAsZip() {
   const zip = new JSZip();
   const folder = zip.folder('tele-stickers');
   
-  // Convert Data URLs to PNG Blobs and add them to zip
+  // Convert Data URLs to PNG or WEBP Blobs and add them to zip
   for (let i = 0; i < stickersList.length; i++) {
     const sticker = stickersList[i];
-    const cleanEmojis = getCleanEmojiString(sticker.emojis);
-    const filename = `${i + 1}_${cleanEmojis}.png`;
+    
+    // Detect file format extension from dataUrl (default to png)
+    const isWebp = sticker.dataUrl && sticker.dataUrl.startsWith('data:image/webp');
+    const ext = isWebp ? 'webp' : 'png';
+    const filename = `${i + 1}.${ext}`;
     
     // Extract base64 binary from dataUrl
     const base64Data = sticker.dataUrl.split(',')[1];
@@ -230,7 +236,7 @@ How to Upload to Telegram:
 2. Open Telegram and search for the official "@Stickers" bot (https://t.me/Stickers).
 3. Send the "/newpack" command.
 4. Choose a name for your sticker pack when prompted (e.g. "My Cat Stickers").
-5. Send each PNG image file as an UNCOMPRESSED DOCUMENT (not a photo) one by one.
+5. Send each PNG or WEBP image file as an UNCOMPRESSED DOCUMENT (not a photo) one by one.
 6. The bot will ask for an emoji after each image file. Match the emoji from the filename!
 7. Send "/publish" when done.
 8. Set a unique shortname/link for your pack.

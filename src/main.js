@@ -3,7 +3,7 @@
  */
 import './style.css';
 import heic2any from 'heic2any';
-import { initEditor, drawSticker, state } from './editor.js';
+import { initEditor, drawSticker, state, setupCropPicker, syncUIFromState } from './editor.js';
 import {
   loadStickers,
   saveStickers,
@@ -23,6 +23,7 @@ const dropZone = document.getElementById('drop-zone');
 const loader = document.getElementById('uploader-loader');
 const loaderStatus = document.getElementById('loader-status');
 const btnAddSticker = document.getElementById('btn-add-sticker');
+const btnResetEditor = document.getElementById('btn-reset-editor');
 const chatStickerImg = document.getElementById('chat-sticker-img');
 const chatStickerPlaceholder = document.getElementById('chat-sticker-placeholder');
 
@@ -48,7 +49,16 @@ function handleCanvasRedraw() {
   drawSticker(canvas);
   
   if (state.sourceImage) {
-    const dataUrl = canvas.toDataURL('image/png');
+    // Generate webp format (high compression) with png fallback to prevent storage limits
+    let dataUrl;
+    try {
+      dataUrl = canvas.toDataURL('image/webp', 0.85);
+      if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
+        dataUrl = canvas.toDataURL('image/png');
+      }
+    } catch (e) {
+      dataUrl = canvas.toDataURL('image/png');
+    }
     chatStickerImg.src = dataUrl;
     chatStickerImg.style.display = 'block';
     chatStickerPlaceholder.style.display = 'none';
@@ -154,17 +164,31 @@ async function processUploadedFile(file) {
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        state.sourceImage = img;
-        
-        // Hide loader, show canvas
-        loader.style.display = 'none';
-        dropZone.style.display = 'flex';
-        canvas.style.display = 'block';
-        placeholder.style.display = 'none';
-        btnAddSticker.disabled = false;
-        
-        // Redraw sticker canvas & chat preview
-        handleCanvasRedraw();
+        try {
+          state.sourceImage = img;
+          
+          // Reset crop position and zoom for each new image
+          state.cropOffsetX = 0.5;
+          state.cropOffsetY = 0.5;
+          state.cropZoom    = 1.0;
+          
+          // Hide loader, show canvas
+          loader.style.display = 'none';
+          dropZone.style.display = 'flex';
+          canvas.style.display = 'block';
+          placeholder.style.display = 'none';
+          btnAddSticker.disabled = false;
+          
+          // Mount the crop picker widget (hidden automatically for square images)
+          setupCropPicker(img, handleCanvasRedraw);
+          
+          // Redraw sticker canvas & chat preview
+          handleCanvasRedraw();
+        } catch (err) {
+          console.error('[img.onload] Error during image setup:', err);
+          loader.style.display = 'none';
+          dropZone.style.display = 'flex';
+        }
       };
       img.src = e.target.result;
     };
@@ -275,14 +299,24 @@ function initFileUploader() {
  * Edit Callback from Showcase
  */
 function onEditSticker(sticker) {
+  // Reset crop offsets and zoom
+  state.cropOffsetX = 0.5;
+  state.cropOffsetY = 0.5;
+  state.cropZoom    = 1.0;
+  
+  // Reset other styling parameters (to prevent double-applying baked filters)
+  state.outlineEnabled = false;
+  state.shadowEnabled  = false;
+  
   // Load sticker info into editor state
   state.captionText = sticker.text || '';
-  state.emojis = sticker.emojis || '🐱';
   state.editingStickerId = sticker.id;
   
-  // Set UI inputs
-  document.getElementById('caption-input').value = state.captionText;
-  document.getElementById('emoji-input').value = state.emojis;
+  // Sync the DOM input elements with the new clean state
+  syncUIFromState();
+  
+  // Hide the crop picker viewport since it's already a square baked sticker image
+  setupCropPicker(null, handleCanvasRedraw);
   
   // Update main button label & display cancel
   btnAddSticker.innerHTML = '<i class="fa-solid fa-check"></i> Save Changes';
@@ -304,16 +338,8 @@ function onEditSticker(sticker) {
     // Switch to Builder tab
     document.getElementById('tab-btn-generator').click();
     
-    // Update emojis picker active styling
-    const picker = document.getElementById('emoji-picker');
-    const btns = picker.querySelectorAll('.emoji-btn');
-    btns.forEach(btn => {
-      if (state.emojis.includes(btn.textContent)) {
-        btn.classList.add('selected');
-      } else {
-        btn.classList.remove('selected');
-      }
-    });
+    // Sync UI again to ensure emojis picker is correctly highlighted
+    syncUIFromState();
     
     handleCanvasRedraw();
   };
@@ -336,9 +362,9 @@ function onDeleteSticker(id) {
  */
 async function loadSampleStickers() {
   const samples = [
-    { url: '/sample-cat-1.png', emojis: '😻', text: 'HAPPY' },
-    { url: '/sample-cat-2.png', emojis: '🙀', text: 'WHAT?!' },
-    { url: '/sample-cat-3.png', emojis: '😡', text: 'GRUMPY' }
+    { url: '/sample-cat-1.png', text: 'HAPPY' },
+    { url: '/sample-cat-2.png', text: 'WHAT?!' },
+    { url: '/sample-cat-3.png', text: 'GRUMPY' }
   ];
   
   for (const sample of samples) {
@@ -349,7 +375,7 @@ async function loadSampleStickers() {
       
       const reader = new FileReader();
       reader.onloadend = () => {
-        addSticker(reader.result, sample.emojis, sample.text, () => {
+        addSticker(reader.result, sample.text, () => {
           renderStickersGrid(onEditSticker, onDeleteSticker);
         });
       };
@@ -379,11 +405,25 @@ function main() {
   
   // 6. Load stickers from local storage
   loadStickers((loaded) => {
-    // If pack is brand new and empty, load the sample stickers
-    if (loaded.length === 0) {
+    // If pack is brand new and empty (and never initialized before), load the sample stickers
+    const isInitialized = localStorage.getItem('tele_stickers_initialized');
+    if (loaded.length === 0 && !isInitialized) {
+      localStorage.setItem('tele_stickers_initialized', 'true');
       loadSampleStickers();
     } else {
       renderStickersGrid(onEditSticker, onDeleteSticker);
+    }
+    
+    // Automatically migrate any existing PNG stickers to compressed WEBP to free up storage
+    migrateStickersToWebp(loaded);
+  });
+
+  // Listen for storage events from other tabs to sync showcase grid automatically
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'tele_stickers_pack') {
+      loadStickers(() => {
+        renderStickersGrid(onEditSticker, onDeleteSticker);
+      });
     }
   });
 
@@ -392,28 +432,41 @@ function main() {
   btnAddSticker.addEventListener('click', () => {
     if (!state.sourceImage) return;
     
-    // Draw and capture canvas as DataURL
+    // Draw and capture canvas as DataURL (compress to WEBP with PNG fallback)
     drawSticker(canvas);
-    const dataUrl = canvas.toDataURL('image/png');
+    let dataUrl;
+    try {
+      dataUrl = canvas.toDataURL('image/webp', 0.85);
+      if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
+        dataUrl = canvas.toDataURL('image/png');
+      }
+    } catch (e) {
+      dataUrl = canvas.toDataURL('image/png');
+    }
     
-    const onStickersSaved = () => {
-      renderStickersGrid(onEditSticker, onDeleteSticker);
-      
-      // Reset edit state
-      state.editingStickerId = null;
-      btnAddSticker.innerHTML = '<i class="fa-solid fa-plus"></i> Add to Pack';
-      document.getElementById('btn-cancel-edit').style.display = 'none';
-      
-      // Smooth animation transition to Showcase Tab
-      setTimeout(() => {
-        document.getElementById('tab-btn-showcase').click();
-      }, 300);
-    };
-
     if (state.editingStickerId) {
-      updateSticker(state.editingStickerId, dataUrl, state.emojis, state.captionText, onStickersSaved);
+      updateSticker(state.editingStickerId, dataUrl, state.captionText, () => {
+        renderStickersGrid(onEditSticker, onDeleteSticker);
+        showToast('Sticker updated successfully!');
+        
+        // Reset edit state
+        state.editingStickerId = null;
+        btnAddSticker.innerHTML = '<i class="fa-solid fa-plus"></i> Add to Pack';
+        document.getElementById('btn-cancel-edit').style.display = 'none';
+        
+        // Switch to Showcase
+        setTimeout(() => {
+          document.getElementById('tab-btn-showcase').click();
+        }, 300);
+      });
     } else {
-      addSticker(dataUrl, state.emojis, state.captionText, onStickersSaved);
+      addSticker(dataUrl, state.captionText, () => {
+        renderStickersGrid(onEditSticker, onDeleteSticker);
+        showToast('Sticker added to pack!');
+        
+        // Reset the builder for next sticker
+        btnResetEditor.click();
+      });
     }
   });
 
@@ -426,21 +479,25 @@ function main() {
   });
 
   // Reset Editor / New Sticker Button
-  const btnResetEditor = document.getElementById('btn-reset-editor');
   btnResetEditor.addEventListener('click', () => {
     // Reset state
     state.sourceImage = null;
     state.originalBlob = null;
     state.editingStickerId = null;
     state.captionText = '';
-    state.emojis = '🐱';
+    state.cropOffsetX = 0.5;
+    state.cropOffsetY = 0.5;
+    state.cropZoom    = 1.0;
+    state.outlineEnabled = false;
+    state.shadowEnabled  = false;
 
-    // Reset inputs
-    document.getElementById('caption-input').value = '';
-    document.getElementById('emoji-input').value = 'whitespace';
-    document.getElementById('emoji-input').value = '🐱';
+    // Sync all UI inputs to match the reset state
+    syncUIFromState();
+
+    // Hide crop picker
+    setupCropPicker(null, handleCanvasRedraw);
     
-    // Reset button layouts
+    // Reset buttons
     btnAddSticker.innerHTML = '<i class="fa-solid fa-plus"></i> Add to Pack';
     btnAddSticker.disabled = true;
     btnCancelEdit.style.display = 'none';
@@ -451,17 +508,6 @@ function main() {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, 512, 512);
 
-    // Reset emojis active styling
-    const picker = document.getElementById('emoji-picker');
-    const btns = picker.querySelectorAll('.emoji-btn');
-    btns.forEach(btn => {
-      if (btn.textContent === '🐱') {
-        btn.classList.add('selected');
-      } else {
-        btn.classList.remove('selected');
-      }
-    });
-
     handleCanvasRedraw();
   });
   
@@ -469,7 +515,110 @@ function main() {
   btnExportZip.addEventListener('click', () => {
     exportPackAsZip();
   });
+
+  // 9. Crop "Reset to Center" button
+  document.getElementById('btn-crop-center').addEventListener('click', () => {
+    state.cropOffsetX = 0.5;
+    state.cropOffsetY = 0.5;
+    state.cropZoom    = 1.0;
+    setupCropPicker(state.sourceImage, handleCanvasRedraw);
+    handleCanvasRedraw();
+  });
+
+  // 10. Listen for storage quota errors from preview.js
+  window.addEventListener('sticker-storage-error', () => {
+    showToast('Storage full! Please delete some stickers or export your ZIP pack.', 'error');
+  });
 }
 
 // Start application
 main();
+
+/**
+ * Display a floating success or error toast notification
+ */
+function showToast(message, type = 'success') {
+  let container = document.querySelector('.toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+  
+  const toast = document.createElement('div');
+  toast.className = `toast-notification ${type}`;
+  
+  const icon = type === 'success' 
+    ? '<i class="fa-solid fa-circle-check"></i>' 
+    : '<i class="fa-solid fa-circle-exclamation"></i>';
+    
+  toast.innerHTML = `${icon}<span>${message}</span>`;
+  
+  container.appendChild(toast);
+  
+  // Remove toast after animation ends (3 seconds total: 2.7s delay + 0.3s transition)
+  setTimeout(() => {
+    toast.remove();
+    if (container.children.length === 0) {
+      container.remove();
+    }
+  }, 3000);
+}
+
+/**
+ * Automatically migrate any legacy base64 PNG stickers to base64 WEBP in the background
+ */
+async function migrateStickersToWebp(loaded) {
+  if (!loaded || loaded.length === 0) return;
+  
+  let needsSave = false;
+  for (let i = 0; i < loaded.length; i++) {
+    const sticker = loaded[i];
+    if (sticker.dataUrl && sticker.dataUrl.startsWith('data:image/png')) {
+      try {
+        const compressedUrl = await convertPngDataUrlToWebp(sticker.dataUrl);
+        if (compressedUrl) {
+          sticker.dataUrl = compressedUrl;
+          needsSave = true;
+        }
+      } catch (e) {
+        console.error('Failed to compress sticker during background migration:', sticker.id, e);
+      }
+    }
+  }
+  
+  if (needsSave) {
+    console.log('Background migration complete: Compacting stickers list and saving.');
+    saveStickers();
+    renderStickersGrid(onEditSticker, onDeleteSticker);
+  }
+}
+
+/**
+ * Helper to convert a PNG Data URL to a WEBP Data URL via canvas
+ */
+function convertPngDataUrlToWebp(pngUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = img.naturalWidth || img.width || 512;
+        tempCanvas.height = img.naturalHeight || img.height || 512;
+        const ctx = tempCanvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        
+        const webpUrl = tempCanvas.toDataURL('image/webp', 0.85);
+        if (webpUrl && webpUrl.startsWith('data:image/webp')) {
+          resolve(webpUrl);
+        } else {
+          resolve(null);
+        }
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = (err) => reject(err);
+    img.src = pngUrl;
+  });
+}

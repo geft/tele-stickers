@@ -14,9 +14,8 @@ Tele-Stickers is a premium, 100% local, offline-capable single-page web applicat
   - **Sticker Outlines**: Renders the classic thick white sticker border outline around transparent silhouettes or square boundaries.
   - **Drop Shadow**: Overlays a soft, blurred drop shadow to emulate the Telegram chat bubble styling.
   - **Meme Text Captioning**: Inserts customizable Impact meme text (white fill with thick black stroke) at the top, center, or bottom of the sticker.
-  - **Emoji Mapping**: Easily assign standard reaction emojis to your sticker.
-- **Fullyst-Style Showcase**: Preview all created stickers in a neat, dark glassmorphic grid showing mapped emojis. Edit, delete, or download individual files easily.
-- **Bulk ZIP Packaging**: Bundles the entire pack into a structured `tele-stickers.zip` containing named transparent PNGs (e.g. `1_😻.png`) alongside a step-by-step upload guide.
+- **Fullyst-Style Showcase**: Preview all created stickers in a neat, dark glassmorphic grid. Edit, delete, or download individual files easily.
+- **Bulk ZIP Packaging**: Bundles the entire pack into a structured `tele-stickers.zip` containing index-named image files (e.g. `1.png` or `1.webp`) alongside a step-by-step upload guide.
 - **Telegram Import Guide**: Built-in instructions explaining how to talk to the official `@Stickers` bot in Telegram to create and host your new pack.
 
 ---

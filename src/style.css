@@ -354,9 +354,10 @@ body {
   display: inline-block;
   width: 44px;
   height: 22px;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: #2e2e38; /* Higher contrast dark gray for visible off-state */
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 34px;
-  transition: 0.3s;
+  transition: all 0.3s ease;
 }
 
 .switch-slider:before {
@@ -364,8 +365,8 @@ body {
   content: "";
   height: 16px;
   width: 16px;
-  left: 3px;
-  bottom: 3px;
+  left: 2px;
+  bottom: 2px;
   background-color: white;
   border-radius: 50%;
   transition: 0.3s;
@@ -454,72 +455,76 @@ input:checked + .switch-slider:before {
   font-weight: 600;
 }
 
-/* Emoji Input & Selector */
-.emoji-input-wrapper {
-  position: relative;
+
+
+/* Toast Container & Notification Styles */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast-notification {
+  background: rgba(22, 22, 28, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-light);
+  border-left: 4px solid var(--accent);
+  color: var(--text-primary);
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  gap: 10px;
+  pointer-events: auto;
+  animation: toast-in-right 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards,
+             toast-out-fade 0.3s ease-in 2.7s forwards;
 }
 
-.emoji-input-wrapper input {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 20px;
-  padding: 8px 40px 8px 12px;
-  outline: none;
-  letter-spacing: 4px;
+.toast-notification.success {
+  border-left-color: var(--success);
+}
+.toast-notification.success i {
+  color: var(--success);
 }
 
-.btn-clear-emojis {
-  position: absolute;
-  right: 12px;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
+.toast-notification.error {
+  border-left-color: var(--danger);
 }
-
-.btn-clear-emojis:hover {
+.toast-notification.error i {
   color: var(--danger);
 }
 
-.emoji-picker {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.15);
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid var(--border-light);
-  max-height: 120px;
-  overflow-y: auto;
+@keyframes toast-in-right {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
-.emoji-btn {
-  background: transparent;
-  border: none;
-  font-size: 22px;
-  padding: 4px 0;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.15s;
+@keyframes toast-out-fade {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }
 
-.emoji-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  transform: scale(1.15);
-}
 
-.emoji-btn.selected {
-  background: var(--accent-soft);
-  outline: 1px solid var(--accent);
-}
 
 /* Buttons */
 .button-row {
@@ -961,24 +966,7 @@ input:checked + .switch-slider:before {
   filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
 }
 
-.sticker-card-emoji {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(4px);
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  border: 1px solid var(--border-light);
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  max-width: 80%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+
 
 .sticker-card-actions {
   display: flex;
@@ -1194,3 +1182,147 @@ input:checked + .switch-slider:before {
   0% { transform: scale(0.85); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* ── Crop Picker Widget ───────────────────────────────────────────────────── */
+
+/* Outer viewport: clips the draggable image to a square crop window */
+.crop-viewport {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15), var(--shadow-sm);
+  cursor: grab;
+  background: #000;
+  user-select: none;
+  -webkit-user-select: none;
+  margin: 0 auto 10px;
+  transition: box-shadow 0.2s;
+}
+
+.crop-viewport:hover {
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25), var(--shadow-md);
+}
+
+/* The actual image that slides inside the viewport */
+#crop-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  pointer-events: none; /* drag is handled on the parent viewport */
+}
+
+/* Amber corner marks to visualise the crop frame clearly */
+.crop-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 10px;
+  /* Eight amber corner ticks drawn as a box-shadow ring */
+  box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.55);
+}
+
+/* Corner tick marks using ::before / ::after pseudo-elements */
+.crop-frame::before,
+.crop-frame::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.crop-frame::before {
+  top: 8px;
+  left: 8px;
+  border-width: 3px 0 0 3px;
+  border-radius: 3px 0 0 0;
+}
+
+.crop-frame::after {
+  bottom: 8px;
+  right: 8px;
+  border-width: 0 3px 3px 0;
+  border-radius: 0 0 3px 0;
+}
+
+/* Drag-hint label below the viewport */
+.crop-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+/* Ghost / subtle button style (used for the crop center reset) */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-hover);
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 7px 14px;
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.crop-center-btn {
+  display: flex;
+  margin: 0 auto;
+}
+
+/* Zoom slider row inside the crop picker */
+.crop-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.crop-zoom-icon {
+  color: var(--text-muted);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.crop-zoom-label {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+  min-width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Crop picker uses the global slider-row range track, just without the wrapper */
+.crop-zoom-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+.crop-zoom-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.crop-zoom-row input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+
+

@@ -67,37 +67,40 @@
                   <p id="loader-status">Processing image...</p>
                 </div>
               </div>
-              
+
+              <!-- Crop Picker (shown only for non-square images) -->
+              <div class="control-group" id="crop-picker-section" style="display:none;">
+                <h3><i class="fa-solid fa-crop-simple"></i> Crop &amp; Zoom</h3>
+                <div class="crop-viewport" id="crop-viewport">
+                  <img id="crop-img" draggable="false" alt="Crop preview" />
+                  <div class="crop-frame"></div>
+                </div>
+                <p class="crop-hint" id="crop-hint">Drag to reposition &middot; scroll to zoom</p>
+                <!-- Zoom slider -->
+                <div class="crop-zoom-row">
+                  <i class="fa-solid fa-magnifying-glass-minus crop-zoom-icon"></i>
+                  <input type="range" id="crop-zoom" min="100" max="400" value="100" step="5" />
+                  <i class="fa-solid fa-magnifying-glass-plus crop-zoom-icon"></i>
+                  <span id="crop-zoom-val" class="crop-zoom-label">1.0&times;</span>
+                </div>
+                <button class="btn btn-ghost crop-center-btn" id="btn-crop-center">
+                  <i class="fa-solid fa-crosshairs"></i> Reset Crop
+                </button>
+              </div>
+
               <!-- Sticker Styling Options -->
               <div class="control-group">
                 <h3><i class="fa-solid fa-sliders"></i> Adjust Styling</h3>
                 
-                <!-- Cartoon Effect Toggle & Sliders -->
-                <div class="toggle-row">
-                  <label class="switch-label">
-                    <span class="label-text">Cartoon Effect</span>
-                    <input type="checkbox" id="toggle-cartoon" />
-                    <span class="switch-slider"></span>
-                  </label>
-                </div>
-                <div class="slider-row" id="cartoon-colors-container" style="display: none;">
-                  <label for="cartoon-colors">Color Steps: <span id="cartoon-colors-val">5</span></label>
-                  <input type="range" id="cartoon-colors" min="2" max="12" value="5" />
-                </div>
-                <div class="slider-row" id="cartoon-edges-container" style="display: none;">
-                  <label for="cartoon-edges">Ink Outline: <span id="cartoon-edges-val">3</span></label>
-                  <input type="range" id="cartoon-edges" min="0" max="10" value="3" />
-                </div>
-                
-                <!-- Border Toggle & Size -->
+                 <!-- Border Toggle & Size -->
                 <div class="toggle-row">
                   <label class="switch-label">
                     <span class="label-text">White Sticker Border</span>
-                    <input type="checkbox" id="toggle-border" checked />
+                    <input type="checkbox" id="toggle-border" />
                     <span class="switch-slider"></span>
                   </label>
                 </div>
-                <div class="slider-row" id="border-size-container">
+                <div class="slider-row" id="border-size-container" style="display: none;">
                   <label for="border-size">Border Width: <span id="border-size-val">8</span>px</label>
                   <input type="range" id="border-size" min="1" max="25" value="8" />
                 </div>
@@ -106,11 +109,11 @@
                 <div class="toggle-row">
                   <label class="switch-label">
                     <span class="label-text">Telegram Drop Shadow</span>
-                    <input type="checkbox" id="toggle-shadow" checked />
+                    <input type="checkbox" id="toggle-shadow" />
                     <span class="switch-slider"></span>
                   </label>
                 </div>
-                <div class="slider-row" id="shadow-size-container">
+                <div class="slider-row" id="shadow-size-container" style="display: none;">
                   <label for="shadow-blur">Shadow Blur: <span id="shadow-blur-val">6</span>px</label>
                   <input type="range" id="shadow-blur" min="0" max="20" value="6" />
                 </div>
@@ -141,20 +144,7 @@
                   </label>
                 </div>
               </div>
-              
-              <!-- Emoji Selection -->
-              <div class="control-group">
-                <h3><i class="fa-regular fa-face-smile"></i> Mapped Emojis</h3>
-                <div class="emoji-input-wrapper">
-                  <input type="text" id="emoji-input" value="🐱" placeholder="Sticker emojis..." readonly />
-                  <button class="btn-clear-emojis" id="btn-clear-emojis" title="Clear Emojis">
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-                <div class="emoji-picker" id="emoji-picker">
-                  <!-- JS will generate standard reaction emojis here -->
-                </div>
-              </div>
+
               
               <!-- Actions -->
               <div class="button-row" style="display: flex; flex-direction: column; gap: 10px;">
@@ -304,9 +294,6 @@
               </div>
               
               <!-- Step 3 -->
-              <div class="step-num-line"></div>
-              
-              <!-- Step 3 -->
               <div class="step-card">
                 <div class="step-num">3</div>
                 <div class="step-icon"><i class="fa-solid fa-folder-plus"></i></div>
@@ -318,8 +305,8 @@
               <div class="step-card">
                 <div class="step-num">4</div>
                 <div class="step-icon"><i class="fa-solid fa-upload"></i></div>
-                <h3>Upload files & Emojis</h3>
-                <p>The bot will ask you to send the sticker. Upload one of the <strong>512x512px PNG</strong> files from your extracted ZIP as a <strong>File/Document</strong> (NOT a compressed photo). Then send the emoji you mapped to it.</p>
+                <h3>Upload Stickers &amp; Emojis</h3>
+                <p>The bot will ask you to send the sticker. Upload one of the <strong>512x512px PNG</strong> files from your extracted ZIP as a <strong>File/Document</strong> (NOT a compressed photo). Then send a corresponding emoji for that sticker.</p>
               </div>
               
               <!-- Step 5 -->

@@ -3,22 +3,45 @@
  * Handles image processing, cartoon shaders, borders, text, and emoji mappings.
  */
 
+/**
+ * Compute the source rectangle to crop from an image for a square sticker.
+ *
+ * @param {number} imgWidth   - Natural width of the source image (px)
+ * @param {number} imgHeight  - Natural height of the source image (px)
+ * @param {number} offsetX    - Horizontal pan offset [0, 1] (0=left, 0.5=centre, 1=right)
+ * @param {number} offsetY    - Vertical pan offset   [0, 1]
+ * @param {number} zoom       - Zoom level ≥1.0 (1=fit, 2=2× zoomed in)
+ * @returns {{ srcX, srcY, srcWidth, srcHeight }}
+ */
+export function computeCropRect(imgWidth, imgHeight, offsetX, offsetY, zoom) {
+  const minDim = Math.min(imgWidth, imgHeight);
+  const cropSz = Math.round(minDim / zoom);
+  const xSlack = imgWidth  - cropSz;
+  const ySlack = imgHeight - cropSz;
+  return {
+    srcX:      Math.round(xSlack * offsetX),
+    srcY:      Math.round(ySlack * offsetY),
+    srcWidth:  cropSz,
+    srcHeight: cropSz,
+  };
+}
+
 // Global editor state
 export const state = {
-  sourceImage: null, // HTMLImageElement or null
-  originalBlob: null, // File/Blob of the original uploaded image
-  editingStickerId: null, // ID of the sticker currently being edited (null if new)
-  cartoonEnabled: false,
-  cartoonColors: 5,
-  cartoonEdges: 3,
-  outlineEnabled: true,
+  sourceImage: null,
+  originalBlob: null,
+  editingStickerId: null,
+  outlineEnabled: false,
   outlineThickness: 8,
-  shadowEnabled: true,
+  shadowEnabled: false,
   shadowBlur: 6,
   captionText: '',
   captionSize: 48,
   captionPos: 'bottom',
-  emojis: '🐱',
+  // Crop: offset 0=start edge, 1=far edge, 0.5=center; zoom >1 = zoomed in
+  cropOffsetX: 0.5,
+  cropOffsetY: 0.5,
+  cropZoom: 1.0,
 };
 
 /**
@@ -28,14 +51,6 @@ export function initEditor(canvas, onStateChange) {
   const ctx = canvas.getContext('2d');
   
   // Grab controls from DOM
-  const toggleCartoon = document.getElementById('toggle-cartoon');
-  const cartoonColors = document.getElementById('cartoon-colors');
-  const cartoonEdges = document.getElementById('cartoon-edges');
-  const cartoonColorsVal = document.getElementById('cartoon-colors-val');
-  const cartoonEdgesVal = document.getElementById('cartoon-edges-val');
-  const cartoonColorsContainer = document.getElementById('cartoon-colors-container');
-  const cartoonEdgesContainer = document.getElementById('cartoon-edges-container');
-  
   const toggleBorder = document.getElementById('toggle-border');
   const borderSize = document.getElementById('border-size');
   const borderSizeVal = document.getElementById('border-size-val');
@@ -51,18 +66,9 @@ export function initEditor(canvas, onStateChange) {
   const captionSizeVal = document.getElementById('caption-size-val');
   const captionPosRadios = document.getElementsByName('caption-pos');
   
-  const emojiInput = document.getElementById('emoji-input');
-  const emojiPicker = document.getElementById('emoji-picker');
-  const btnClearEmojis = document.getElementById('btn-clear-emojis');
   const btnAddSticker = document.getElementById('btn-add-sticker');
   
   // Set initial UI values from state
-  toggleCartoon.checked = state.cartoonEnabled;
-  cartoonColors.value = state.cartoonColors;
-  cartoonColorsVal.textContent = state.cartoonColors;
-  cartoonEdges.value = state.cartoonEdges;
-  cartoonEdgesVal.textContent = state.cartoonEdges;
-  
   toggleBorder.checked = state.outlineEnabled;
   borderSize.value = state.outlineThickness;
   borderSizeVal.textContent = state.outlineThickness;
@@ -75,71 +81,7 @@ export function initEditor(canvas, onStateChange) {
   captionSize.value = state.captionSize;
   captionSizeVal.textContent = state.captionSize;
   
-  // Popular emojis for Telegram sticker reactions
-  const popularEmojis = [
-    '🐱', '😻', '😹', '😼', '😿', '🙀', '😡', '😢', 
-    '😂', '😎', '😍', '👍', '❤️', '🔥', '🎉', '💩', 
-    '🤔', '😱', '😴', '🙄', '😈', '🤡', '👏', '👀'
-  ];
-  
-  // Build Emoji picker
-  emojiPicker.innerHTML = '';
-  popularEmojis.forEach(emoji => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `emoji-btn ${state.emojis.includes(emoji) ? 'selected' : ''}`;
-    btn.textContent = emoji;
-    btn.addEventListener('click', () => {
-      let current = emojiInput.value;
-      if (current.includes(emoji)) {
-        // Toggle off
-        current = current.replace(emoji, '');
-      } else {
-        // Add emoji
-        current += emoji;
-      }
-      // Keep at least one emoji or fall back to empty
-      emojiInput.value = current || '🐱';
-      state.emojis = emojiInput.value;
-      
-      // Update active styling
-      updateEmojiPickerActiveStates();
-      onStateChange();
-    });
-    emojiPicker.appendChild(btn);
-  });
-
-  function updateEmojiPickerActiveStates() {
-    const btns = emojiPicker.querySelectorAll('.emoji-btn');
-    btns.forEach(btn => {
-      if (state.emojis.includes(btn.textContent)) {
-        btn.classList.add('selected');
-      } else {
-        btn.classList.remove('selected');
-      }
-    });
-  }
-  
   // Event Listeners
-  toggleCartoon.addEventListener('change', (e) => {
-    state.cartoonEnabled = e.target.checked;
-    cartoonColorsContainer.style.display = state.cartoonEnabled ? 'flex' : 'none';
-    cartoonEdgesContainer.style.display = state.cartoonEnabled ? 'flex' : 'none';
-    onStateChange();
-  });
-  
-  cartoonColors.addEventListener('input', (e) => {
-    state.cartoonColors = parseInt(e.target.value);
-    cartoonColorsVal.textContent = state.cartoonColors;
-    onStateChange();
-  });
-  
-  cartoonEdges.addEventListener('input', (e) => {
-    state.cartoonEdges = parseInt(e.target.value);
-    cartoonEdgesVal.textContent = state.cartoonEdges;
-    onStateChange();
-  });
-  
   toggleBorder.addEventListener('change', (e) => {
     state.outlineEnabled = e.target.checked;
     borderSizeContainer.style.display = state.outlineEnabled ? 'flex' : 'none';
@@ -181,13 +123,6 @@ export function initEditor(canvas, onStateChange) {
       onStateChange();
     });
   });
-  
-  btnClearEmojis.addEventListener('click', () => {
-    emojiInput.value = '';
-    state.emojis = '';
-    updateEmojiPickerActiveStates();
-    onStateChange();
-  });
 }
 
 /**
@@ -214,20 +149,12 @@ export function drawSticker(canvas) {
   const imgWidth = state.sourceImage.width;
   const imgHeight = state.sourceImage.height;
   
-  let srcX = 0;
-  let srcY = 0;
-  let srcWidth = imgWidth;
-  let srcHeight = imgHeight;
-  
-  // Determine if transparent (PNG/cutout) or solid.
-  // Standard crop behavior (square center crop) is applied for full photos.
-  if (imgWidth !== imgHeight) {
-    const minDim = Math.min(imgWidth, imgHeight);
-    srcX = (imgWidth - minDim) / 2;
-    srcY = (imgHeight - minDim) / 2;
-    srcWidth = minDim;
-    srcHeight = minDim;
-  }
+  // Crop with user offset + zoom (delegates to the exported pure function).
+  const { srcX, srcY, srcWidth, srcHeight } = computeCropRect(
+    imgWidth, imgHeight,
+    state.cropOffsetX, state.cropOffsetY,
+    state.cropZoom
+  );
   
   // Draw center-cropped into temp canvas
   tempCtx.drawImage(
@@ -235,13 +162,7 @@ export function drawSticker(canvas) {
     srcX, srcY, srcWidth, srcHeight,
     padding, padding, targetSize, targetSize
   );
-  
-  // 2. Apply Cartoon Effect locally on the temp canvas if enabled
-  if (state.cartoonEnabled) {
-    const imgData = tempCtx.getImageData(0, 0, 512, 512);
-    applyCartoonShader(imgData, state.cartoonColors, state.cartoonEdges);
-    tempCtx.putImageData(imgData, 0, 0);
-  }
+
   
   // 3. Compose Final Drawing on the visible Canvas
   
@@ -278,6 +199,7 @@ export function drawSticker(canvas) {
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = size / 6;
+    ctx.lineJoin = 'round';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
@@ -322,97 +244,209 @@ function drawOutlineSilhouette(ctx, srcCanvas, thickness, color) {
   }
 }
 
+
+
 /**
- * Pure client-side Cartoon Pixel Shader (Cel shading + Sobel edge outlines)
+ * Mounts an interactive drag-to-reposition crop picker.
+ * Shows the full source image scaled to fit inside a fixed square window;
+ * the user pans the image to choose which region gets cropped.
+ *
+ * Call whenever a new image is loaded. Pass null to hide the widget.
+ *
+ * @param {HTMLImageElement|null} sourceImage
+ * @param {Function} onUpdate  Called after each drag movement to redraw the canvas.
  */
-function applyCartoonShader(imgData, colorSteps, edgeStrength) {
-  const data = imgData.data;
-  const width = imgData.width;
-  const height = imgData.height;
+export function setupCropPicker(sourceImage, onUpdate) {
+  const section    = document.getElementById('crop-picker-section');
+  const viewport   = document.getElementById('crop-viewport');
+  const imgEl      = document.getElementById('crop-img');
+  const hint       = document.getElementById('crop-hint');
+  const zoomSlider = document.getElementById('crop-zoom');
+  const zoomVal    = document.getElementById('crop-zoom-val');
+
+  // Guard: hide if no image provided
+  if (!sourceImage) {
+    if (section) section.style.display = 'none';
+    return;
+  }
+
+  const imgW = sourceImage.naturalWidth;
+  const imgH = sourceImage.naturalHeight;
+
+  // Wait for the browser to fully decode the image if needed
+  if (imgW === 0 || imgH === 0) {
+    console.warn('[CropPicker] naturalWidth/Height not ready, waiting for decode...');
+    sourceImage.decode()
+      .then(() => setupCropPicker(sourceImage, onUpdate))
+      .catch(() => console.error('[CropPicker] Image decode failed.'));
+    return;
+  }
+
+  console.log(`[CropPicker] Image dimensions: ${imgW}\u00d7${imgH}`);
+  section.style.display = 'block';
+  imgEl.src = sourceImage.src;
+
+  const VIEWPORT_PX = 220; // matches CSS .crop-viewport width/height
+  const MIN_ZOOM    = 1.0;
+  const MAX_ZOOM    = 4.0;
+
+  // Mutable dims shared between refresh() and event handlers via closure
+  const dims = { xRange: 0, yRange: 0 };
+
+  /** Recalculate display size & position from current state.cropZoom / offsets */
+  const refresh = () => {
+    const scale = (VIEWPORT_PX * state.cropZoom) / Math.min(imgW, imgH);
+    const dispW = Math.round(imgW * scale);
+    const dispH = Math.round(imgH * scale);
+    dims.xRange = Math.max(0, dispW - VIEWPORT_PX);
+    dims.yRange = Math.max(0, dispH - VIEWPORT_PX);
+
+    imgEl.style.width  = dispW + 'px';
+    imgEl.style.height = dispH + 'px';
+
+    // Clamp offsets then reposition
+    state.cropOffsetX = Math.max(0, Math.min(1, state.cropOffsetX));
+    state.cropOffsetY = Math.max(0, Math.min(1, state.cropOffsetY));
+    imgEl.style.left = -(dims.xRange * state.cropOffsetX) + 'px';
+    imgEl.style.top  = -(dims.yRange * state.cropOffsetY) + 'px';
+  };
+
+  const syncZoomUI = () => {
+    zoomSlider.value    = Math.round(state.cropZoom * 100);
+    zoomVal.textContent = state.cropZoom.toFixed(1) + '\u00d7';
+    const canPan = dims.xRange > 0 || dims.yRange > 0;
+    hint.textContent = canPan
+      ? 'Drag to reposition \u00b7 scroll to zoom'
+      : 'Scroll or use slider to zoom in';
+  };
+
+  // Initial render
+  refresh();
+  syncZoomUI();
+
+  // Zoom slider
+  zoomSlider.oninput = (e) => {
+    state.cropZoom = parseInt(e.target.value) / 100;
+    refresh();
+    syncZoomUI();
+    onUpdate();
+  };
+
+  // ── Event listeners (cleaned up on next call via AbortController) ─────────
+  if (viewport._cropAbort) viewport._cropAbort.abort();
+  const ac = new AbortController();
+  const { signal } = ac;
+  viewport._cropAbort = ac;
+
+  // ── Drag to pan ───────────────────────────────────────────────────────────
+  let dragging = false;
+  let startX, startY, startLeft, startTop;
+
+  const onPointerDown = (clientX, clientY) => {
+    if (dims.xRange === 0 && dims.yRange === 0) return;
+    dragging  = true;
+    startX    = clientX;
+    startY    = clientY;
+    startLeft = parseFloat(imgEl.style.left) || 0;
+    startTop  = parseFloat(imgEl.style.top)  || 0;
+    viewport.style.cursor = 'grabbing';
+  };
+
+  const onPointerMove = (clientX, clientY) => {
+    if (!dragging) return;
+    const newLeft = Math.max(-dims.xRange, Math.min(0, startLeft + (clientX - startX)));
+    const newTop  = Math.max(-dims.yRange, Math.min(0, startTop  + (clientY - startY)));
+    imgEl.style.left = newLeft + 'px';
+    imgEl.style.top  = newTop  + 'px';
+    state.cropOffsetX = dims.xRange > 0 ? (-newLeft / dims.xRange) : 0.5;
+    state.cropOffsetY = dims.yRange > 0 ? (-newTop  / dims.yRange) : 0.5;
+    onUpdate();
+  };
+
+  const onPointerUp = () => {
+    dragging = false;
+    viewport.style.cursor = 'grab';
+  };
+
+  // ── Scroll-wheel zoom ─────────────────────────────────────────────────────
+  viewport.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    // Pinch-zoom on trackpads uses ctrlKey; regular scroll also works
+    const delta = e.deltaY < 0 ? 0.1 : -0.1;
+    state.cropZoom = parseFloat(
+      Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, state.cropZoom + delta)).toFixed(1)
+    );
+    refresh();
+    syncZoomUI();
+    onUpdate();
+  }, { signal, passive: false });
+
+  // Mouse
+  viewport.addEventListener('mousedown',  (e) => { e.preventDefault(); onPointerDown(e.clientX, e.clientY); }, { signal });
+  window.addEventListener ('mousemove',   (e) => onPointerMove(e.clientX, e.clientY), { signal });
+  window.addEventListener ('mouseup',     onPointerUp, { signal });
+
+  // Touch
+  viewport.addEventListener('touchstart', (e) => { const t = e.touches[0]; onPointerDown(t.clientX, t.clientY); }, { signal, passive: true });
+  window.addEventListener ('touchmove',   (e) => { const t = e.touches[0]; onPointerMove(t.clientX, t.clientY); }, { signal, passive: true });
+  window.addEventListener ('touchend',    onPointerUp, { signal });
+}
+
+/**
+ * Synchronize all UI controls (checkboxes, sliders, range labels, radio buttons)
+ * to match the values currently stored in the global `state` object.
+ */
+export function syncUIFromState() {
+  const toggleBorder = document.getElementById('toggle-border');
+  const borderSize = document.getElementById('border-size');
+  const borderSizeVal = document.getElementById('border-size-val');
+  const borderSizeContainer = document.getElementById('border-size-container');
   
-  // 1. Color Quantization & Saturation Boost
-  const levels = colorSteps; // number of steps per channel
-  const saturation = 1.35; // boost saturation slightly
+  const toggleShadow = document.getElementById('toggle-shadow');
+  const shadowBlur = document.getElementById('shadow-blur');
+  const shadowBlurVal = document.getElementById('shadow-blur-val');
+  const shadowBlurContainer = document.getElementById('shadow-size-container');
   
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    const a = data[i + 3];
-    
-    if (a < 10) continue; // Skip fully transparent pixels
-    
-    // Saturation adjustment
-    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-    let newR = gray + (r - gray) * saturation;
-    let newG = gray + (g - gray) * saturation;
-    let newB = gray + (b - gray) * saturation;
-    
-    // Cel shading: quantize color values into steps
-    newR = Math.round(Math.max(0, Math.min(255, newR)) / 255 * levels) / levels * 255;
-    newG = Math.round(Math.max(0, Math.min(255, newG)) / 255 * levels) / levels * 255;
-    newB = Math.round(Math.max(0, Math.min(255, newB)) / 255 * levels) / levels * 255;
-    
-    data[i] = newR;
-    data[i + 1] = newG;
-    data[i + 2] = newB;
+  const captionInput = document.getElementById('caption-input');
+  const captionSize = document.getElementById('caption-size');
+  const captionSizeVal = document.getElementById('caption-size-val');
+  const captionPosRadios = document.getElementsByName('caption-pos');
+  
+  if (toggleBorder) {
+    toggleBorder.checked = state.outlineEnabled;
+    if (borderSizeContainer) borderSizeContainer.style.display = state.outlineEnabled ? 'flex' : 'none';
+  }
+  if (borderSize) {
+    borderSize.value = state.outlineThickness;
+    if (borderSizeVal) borderSizeVal.textContent = state.outlineThickness;
   }
   
-  // 2. Sobel Edge Detection (Ink outlines overlay)
-  if (edgeStrength > 0) {
-    const threshold = 110 - (edgeStrength * 8); // dynamic threshold based on slider
-    const grays = new Float32Array(width * height);
-    
-    // Convert current RGB to grayscale array
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const idx = (y * width + x) * 4;
-        grays[y * width + x] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-      }
-    }
-    
-    // Temporary buffer for edge rendering
-    const output = new Uint8ClampedArray(data.length);
-    output.set(data);
-    
-    const getPixelGray = (px, py) => {
-      const x = Math.max(0, Math.min(width - 1, px));
-      const y = Math.max(0, Math.min(height - 1, py));
-      return grays[y * width + x];
-    };
-    
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const idx = (y * width + x) * 4;
-        
-        // Skip transparent pixel edges
-        if (data[idx + 3] < 10) continue;
-        
-        // Sobel kernels
-        const gx = 
-          -1 * getPixelGray(x - 1, y - 1) + 1 * getPixelGray(x + 1, y - 1) +
-          -2 * getPixelGray(x - 1, y)     + 2 * getPixelGray(x + 1, y) +
-          -1 * getPixelGray(x - 1, y + 1) + 1 * getPixelGray(x + 1, y + 1);
-          
-        const gy = 
-          -1 * getPixelGray(x - 1, y - 1) - 2 * getPixelGray(x, y - 1) - 1 * getPixelGray(x + 1, y - 1) +
-           1 * getPixelGray(x - 1, y + 1) + 2 * getPixelGray(x, y + 1) + 1 * getPixelGray(x + 1, y + 1);
-           
-        const mag = Math.sqrt(gx * gx + gy * gy);
-        
-        if (mag > threshold) {
-          // Blend ink edge (draw black outlines)
-          const factor = Math.min(1, (mag - threshold) / 35) * (edgeStrength / 10);
-          output[idx] = data[idx] * (1 - factor);
-          output[idx + 1] = data[idx + 1] * (1 - factor);
-          output[idx + 2] = data[idx + 2] * (1 - factor);
-        }
-      }
-    }
-    
-    // Copy back edge edits
-    for (let i = 0; i < data.length; i++) {
-      data[i] = output[i];
-    }
+  if (toggleShadow) {
+    toggleShadow.checked = state.shadowEnabled;
+    if (shadowBlurContainer) shadowBlurContainer.style.display = state.shadowEnabled ? 'flex' : 'none';
+  }
+  if (shadowBlur) {
+    shadowBlur.value = state.shadowBlur;
+    if (shadowBlurVal) shadowBlurVal.textContent = state.shadowBlur;
+  }
+  
+  if (captionInput) captionInput.value = state.captionText;
+  if (captionSize) {
+    captionSize.value = state.captionSize;
+    if (captionSizeVal) captionSizeVal.textContent = state.captionSize;
+  }
+  if (captionPosRadios) {
+    captionPosRadios.forEach(radio => {
+      radio.checked = (radio.value === state.captionPos);
+    });
+  }
+
+  // Sync zoom UI if the slider exists
+  const zoomSlider = document.getElementById('crop-zoom');
+  const zoomVal = document.getElementById('crop-zoom-val');
+  if (zoomSlider) {
+    zoomSlider.value = Math.round(state.cropZoom * 100);
+    if (zoomVal) zoomVal.textContent = state.cropZoom.toFixed(1) + '×';
   }
 }
+
