@@ -7,6 +7,7 @@
 export const state = {
   sourceImage: null, // HTMLImageElement or null
   originalBlob: null, // File/Blob of the original uploaded image
+  editingStickerId: null, // ID of the sticker currently being edited (null if new)
   cartoonEnabled: false,
   cartoonColors: 5,
   cartoonEdges: 3,

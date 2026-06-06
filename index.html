@@ -179,9 +179,15 @@
               </div>
               
               <!-- Actions -->
-              <div class="button-row">
+              <div class="button-row" style="display: flex; flex-direction: column; gap: 10px;">
                 <button class="btn btn-primary btn-large" id="btn-add-sticker" disabled>
                   <i class="fa-solid fa-plus"></i> Add to Pack
+                </button>
+                <button class="btn btn-secondary btn-large" id="btn-cancel-edit" style="display: none;">
+                  <i class="fa-solid fa-ban"></i> Cancel Edit
+                </button>
+                <button class="btn btn-large" id="btn-reset-editor" style="width: 100%;">
+                  <i class="fa-solid fa-rotate-left"></i> Reset / New Sticker
                 </button>
               </div>
 

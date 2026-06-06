@@ -65,6 +65,23 @@ export function deleteSticker(id, onUpdate) {
 }
 
 /**
+ * Update an existing sticker in the pack
+ */
+export function updateSticker(id, dataUrl, emojis, text, onUpdate) {
+  const index = stickersList.findIndex(s => s.id === id);
+  if (index !== -1) {
+    stickersList[index] = {
+      ...stickersList[index],
+      dataUrl,
+      emojis: emojis || '🐱',
+      text
+    };
+    saveStickers();
+    if (onUpdate) onUpdate(stickersList);
+  }
+}
+
+/**
  * Render the Fullyst-style stickers grid
  */
 export function renderStickersGrid(onEditSticker, onDeleteSticker) {

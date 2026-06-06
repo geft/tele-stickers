@@ -9,6 +9,7 @@ import {
   loadStickers,
   saveStickers,
   addSticker,
+  updateSticker,
   deleteSticker,
   renderStickersGrid,
   exportPackAsZip,
@@ -257,10 +258,15 @@ function onEditSticker(sticker) {
   // Load sticker info into editor state
   state.captionText = sticker.text || '';
   state.emojis = sticker.emojis || '🐱';
+  state.editingStickerId = sticker.id;
   
   // Set UI inputs
   document.getElementById('caption-input').value = state.captionText;
   document.getElementById('emoji-input').value = state.emojis;
+  
+  // Update main button label & display cancel
+  btnAddSticker.innerHTML = '<i class="fa-solid fa-check"></i> Save Changes';
+  document.getElementById('btn-cancel-edit').style.display = 'block';
   
   // Set sourceImage to sticker's data URL
   loader.style.display = 'flex';
@@ -269,6 +275,7 @@ function onEditSticker(sticker) {
   const img = new Image();
   img.onload = () => {
     state.sourceImage = img;
+    state.originalBlob = null; // No original file for existing edited stickers
     loader.style.display = 'none';
     canvas.style.display = 'block';
     placeholder.style.display = 'none';
@@ -408,7 +415,7 @@ function main() {
     }
   });
   
-  // 7. Add to Pack button
+  // 7. Add to Pack / Save Changes button
   btnAddSticker.addEventListener('click', () => {
     if (!state.sourceImage) return;
     
@@ -416,15 +423,73 @@ function main() {
     drawSticker(canvas);
     const dataUrl = canvas.toDataURL('image/png');
     
-    // Save sticker to pack list
-    addSticker(dataUrl, state.emojis, state.captionText, () => {
+    const onStickersSaved = () => {
       renderStickersGrid(onEditSticker, onDeleteSticker);
+      
+      // Reset edit state
+      state.editingStickerId = null;
+      btnAddSticker.innerHTML = '<i class="fa-solid fa-plus"></i> Add to Pack';
+      document.getElementById('btn-cancel-edit').style.display = 'none';
       
       // Smooth animation transition to Showcase Tab
       setTimeout(() => {
         document.getElementById('tab-btn-showcase').click();
       }, 300);
+    };
+
+    if (state.editingStickerId) {
+      updateSticker(state.editingStickerId, dataUrl, state.emojis, state.captionText, onStickersSaved);
+    } else {
+      addSticker(dataUrl, state.emojis, state.captionText, onStickersSaved);
+    }
+  });
+
+  // Cancel Edit Button
+  const btnCancelEdit = document.getElementById('btn-cancel-edit');
+  btnCancelEdit.addEventListener('click', () => {
+    state.editingStickerId = null;
+    btnCancelEdit.style.display = 'none';
+    btnAddSticker.innerHTML = '<i class="fa-solid fa-plus"></i> Add to Pack';
+  });
+
+  // Reset Editor / New Sticker Button
+  const btnResetEditor = document.getElementById('btn-reset-editor');
+  btnResetEditor.addEventListener('click', () => {
+    // Reset state
+    state.sourceImage = null;
+    state.originalBlob = null;
+    state.editingStickerId = null;
+    state.captionText = '';
+    state.emojis = '🐱';
+
+    // Reset inputs
+    document.getElementById('caption-input').value = '';
+    document.getElementById('emoji-input').value = 'whitespace';
+    document.getElementById('emoji-input').value = '🐱';
+    
+    // Reset button layouts
+    btnAddSticker.innerHTML = '<i class="fa-solid fa-plus"></i> Add to Pack';
+    btnAddSticker.disabled = true;
+    btnCancelEdit.style.display = 'none';
+
+    // Clear Canvas and show placeholder
+    canvas.style.display = 'none';
+    placeholder.style.display = 'flex';
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 512, 512);
+
+    // Reset emojis active styling
+    const picker = document.getElementById('emoji-picker');
+    const btns = picker.querySelectorAll('.emoji-btn');
+    btns.forEach(btn => {
+      if (btn.textContent === '🐱') {
+        btn.classList.add('selected');
+      } else {
+        btn.classList.remove('selected');
+      }
     });
+
+    handleCanvasRedraw();
   });
   
   // 8. ZIP export button
