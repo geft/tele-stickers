@@ -27,11 +27,6 @@ const btnAddSticker = document.getElementById('btn-add-sticker');
 const chatStickerImg = document.getElementById('chat-sticker-img');
 const chatStickerPlaceholder = document.getElementById('chat-sticker-placeholder');
 
-// Pack info elements
-const packNameInput = document.getElementById('pack-name-input');
-const packIdInput = document.getElementById('pack-id-input');
-const showcasePackTitle = document.getElementById('showcase-pack-title');
-const showcasePackId = document.getElementById('showcase-pack-id');
 
 // Tabs elements
 const tabButtons = document.querySelectorAll('.nav-tab');
@@ -121,34 +116,6 @@ function initThemeSwitcher() {
   });
 }
 
-/**
- * Setup Pack Metadata Sync
- */
-function initPackMetadata() {
-  // Load saved metadata from localStorage if exists
-  const savedName = localStorage.getItem('tele_stickers_pack_name') || 'My Cat Stickers';
-  const savedId = localStorage.getItem('tele_stickers_pack_id') || 'my_cat_stickers';
-  
-  packNameInput.value = savedName;
-  packIdInput.value = savedId;
-  
-  showcasePackTitle.textContent = savedName;
-  showcasePackId.textContent = savedId;
-  
-  packNameInput.addEventListener('input', (e) => {
-    const val = e.target.value || 'My Cat Stickers';
-    showcasePackTitle.textContent = val;
-    localStorage.setItem('tele_stickers_pack_name', val);
-  });
-  
-  packIdInput.addEventListener('input', (e) => {
-    // Sanitize pack ID: letters, numbers, underscores only
-    const val = e.target.value.replace(/[^a-zA-Z0-9_]/g, '') || 'my_cat_stickers';
-    e.target.value = val;
-    showcasePackId.textContent = val;
-    localStorage.setItem('tele_stickers_pack_id', val);
-  });
-}
 
 /**
  * Handle File Import (HEIC and Standard formats)
@@ -358,9 +325,7 @@ function main() {
   // 2. Chat Preview switcher
   initThemeSwitcher();
   
-  // 3. Metadata sync
-  initPackMetadata();
-  
+
   // 4. File uploader
   initFileUploader();
   
@@ -494,9 +459,7 @@ function main() {
   
   // 8. ZIP export button
   btnExportZip.addEventListener('click', () => {
-    const packName = packNameInput.value || 'My Cat Stickers';
-    const packId = packIdInput.value || 'my_cat_stickers';
-    exportPackAsZip(packName, packId);
+    exportPackAsZip();
   });
 }
 

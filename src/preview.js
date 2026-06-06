@@ -204,11 +204,11 @@ function getCleanEmojiString(emojiStr) {
 /**
  * Pack all stickers into a single ZIP file locally in-browser and download it
  */
-export async function exportPackAsZip(packName, packId) {
+export async function exportPackAsZip() {
   if (stickersList.length === 0) return;
   
   const zip = new JSZip();
-  const folder = zip.folder(packId || 'my_cat_stickers');
+  const folder = zip.folder('tele-stickers');
   
   // Convert Data URLs to PNG Blobs and add them to zip
   for (let i = 0; i < stickersList.length; i++) {
@@ -222,14 +222,14 @@ export async function exportPackAsZip(packName, packId) {
   }
   
   // Generate a README guide inside the ZIP
-  const readmeContent = `Telegram Sticker Pack: ${packName} (${packId})
+  const readmeContent = `Telegram Sticker Pack Guide
 ==================================================
 
 How to Upload to Telegram:
-1. Extract this ZIP folder.
+1. Extract this ZIP folder (tele-stickers.zip).
 2. Open Telegram and search for the official "@Stickers" bot (https://t.me/Stickers).
 3. Send the "/newpack" command.
-4. Name your pack: "${packName}".
+4. Choose a name for your sticker pack when prompted (e.g. "My Cat Stickers").
 5. Send each PNG image file as an UNCOMPRESSED DOCUMENT (not a photo) one by one.
 6. The bot will ask for an emoji after each image file. Match the emoji from the filename!
 7. Send "/publish" when done.
@@ -244,7 +244,7 @@ Created locally using Tele-Stickers.
     const blob = await zip.generateAsync({ type: 'blob' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${packId || 'my_cat_stickers'}.zip`;
+    link.download = 'tele-stickers.zip';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
