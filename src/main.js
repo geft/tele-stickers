@@ -150,9 +150,14 @@ async function processUploadedFile(file) {
     
     const toggleAiCrop = document.getElementById('toggle-ai-crop');
     if (toggleAiCrop && toggleAiCrop.checked) {
-      loaderStatus.textContent = 'Removing background locally (AI)...';
-      // First run downloads model (~30MB) and caches it
-      imageBlob = await removeBackground(imageBlob);
+      loaderStatus.textContent = 'Removing background locally (AI)... [Initializing]';
+      imageBlob = await removeBackground(imageBlob, {
+        publicPath: '/background-removal/',
+        progress: (key, current, total) => {
+          const pct = Math.round((current / total) * 100);
+          loaderStatus.textContent = `Removing background locally (AI)... [${key.replace('fetch:', '')}: ${pct}%]`;
+        }
+      });
     }
     
     loaderStatus.textContent = 'Loading image...';
@@ -190,10 +195,20 @@ async function processUploadedFile(file) {
  * Setup File Drag & Drop (supports both local files and webpage image drag-drops)
  */
 function initFileUploader() {
+  // Prevent browser default drop action (like opening the image) on the whole window
+  window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  }, false);
+  
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+  }, false);
+
   // Click drop zone triggers file input
   dropZone.addEventListener('click', () => fileInput.click());
   
   fileInput.addEventListener('change', (e) => {
+    console.log('File input change detected. Selected files:', e.target.files.length);
     if (e.target.files.length > 0) {
       processUploadedFile(e.target.files[0]);
     }
@@ -213,12 +228,33 @@ function initFileUploader() {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
     
-    if (e.dataTransfer.files.length > 0) {
-      processUploadedFile(e.dataTransfer.files[0]);
+    console.log('Drop event on drop-zone. Files count:', e.dataTransfer.files ? e.dataTransfer.files.length : 0);
+    
+    // 1. Try to get file from e.dataTransfer.files
+    let file = null;
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      file = e.dataTransfer.files[0];
+    } 
+    // 2. Try to get file from e.dataTransfer.items as a fallback
+    else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        if (e.dataTransfer.items[i].kind === 'file') {
+          file = e.dataTransfer.items[i].getAsFile();
+          console.log('Found file in dataTransfer.items:', file ? file.name : 'null');
+          break;
+        }
+      }
+    }
+    
+    if (file) {
+      console.log('Processing dropped file:', file.name, file.size, file.type);
+      processUploadedFile(file);
     } else {
       // Check if they dragged a URL/Image from the webpage itself
       const url = e.dataTransfer.getData('URL') || e.dataTransfer.getData('text/uri-list');
-      if (url) {
+      console.log('No file detected in drop. Extracted URL:', url);
+      
+      if (url && !url.startsWith('about:') && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:'))) {
         dropZone.style.display = 'none';
         loader.style.display = 'flex';
         loaderStatus.textContent = 'Fetching dragged image...';
@@ -239,6 +275,10 @@ function initFileUploader() {
           loader.style.display = 'none';
           dropZone.style.display = 'flex';
         }
+      } else if (url) {
+        console.warn('Ignored invalid or blocked drop URL:', url);
+      } else {
+        console.warn('No valid files or URLs found in dropped data.');
       }
     }
   });
@@ -314,19 +354,11 @@ async function loadSampleStickers() {
     { url: '/sample-cat-3.png', emojis: '😡', text: 'GRUMPY' }
   ];
   
-  // Note: First background removal trigger downloads the model
   for (const sample of samples) {
     try {
       const response = await fetch(sample.url);
       if (!response.ok) continue;
-      let blob = await response.blob();
-      
-      // Auto-cut the backgrounds of the sample stickers so they look amazing and transparent on load!
-      try {
-        blob = await removeBackground(blob);
-      } catch (e) {
-        console.error('AI Cutout failed on sample sticker, using original:', e);
-      }
+      const blob = await response.blob();
       
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -381,8 +413,14 @@ function main() {
     try {
       let processedBlob = state.originalBlob;
       if (toggleAiCrop.checked) {
-        loaderStatus.textContent = 'Removing background locally (AI)...';
-        processedBlob = await removeBackground(state.originalBlob);
+        loaderStatus.textContent = 'Removing background locally (AI)... [Initializing]';
+        processedBlob = await removeBackground(state.originalBlob, {
+          publicPath: '/background-removal/',
+          progress: (key, current, total) => {
+            const pct = Math.round((current / total) * 100);
+            loaderStatus.textContent = `Removing background locally (AI)... [${key.replace('fetch:', '')}: ${pct}%]`;
+          }
+        });
       }
       
       loaderStatus.textContent = 'Loading image...';
