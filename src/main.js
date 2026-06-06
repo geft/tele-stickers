@@ -187,7 +187,7 @@ async function processUploadedFile(file) {
 }
 
 /**
- * Setup File Drag & Drop
+ * Setup File Drag & Drop (supports both local files and webpage image drag-drops)
  */
 function initFileUploader() {
   // Click drop zone triggers file input
@@ -209,11 +209,37 @@ function initFileUploader() {
     dropZone.classList.remove('drag-over');
   });
   
-  dropZone.addEventListener('drop', (e) => {
+  dropZone.addEventListener('drop', async (e) => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
+    
     if (e.dataTransfer.files.length > 0) {
       processUploadedFile(e.dataTransfer.files[0]);
+    } else {
+      // Check if they dragged a URL/Image from the webpage itself
+      const url = e.dataTransfer.getData('URL') || e.dataTransfer.getData('text/uri-list');
+      if (url) {
+        dropZone.style.display = 'none';
+        loader.style.display = 'flex';
+        loaderStatus.textContent = 'Fetching dragged image...';
+        btnAddSticker.disabled = true;
+        
+        try {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          
+          // Create a File object to mimic local files
+          const filename = url.split('/').pop() || 'dragged_image.png';
+          const fileObj = new File([blob], filename, { type: blob.type });
+          
+          await processUploadedFile(fileObj);
+        } catch (error) {
+          console.error('Failed to fetch dropped image URL:', error);
+          alert('Could not load image from that link.');
+          loader.style.display = 'none';
+          dropZone.style.display = 'flex';
+        }
+      }
     }
   });
 }
